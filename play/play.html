@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Project Sekai - Homura Version 🎶</title>
+    <link rel="stylesheet" href="play.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Project Sekai - Homura Version</h1>
+
+        <div class="selector">
+            <label for="songSelect">Select Song:</label>
+            <select id="songSelect">
+                <option value="Decretum">Decretum</option>
+                <option value="BadApple">Bad Apple!!</option>
+            </select>
+            <button id="startButton">Start Game</button>
+        </div>
+
+        <div id="gameArea" class="hidden">
+            <div class="lanes">
+                <div class="lane" id="laneA">A</div>
+                <div class="lane" id="laneS">S</div>
+                <div class="lane" id="laneD">D</div>
+                <div class="lane" id="laneF">F</div>
+            </div>
+
+            <div id="hitZone"></div>
+            <div id="ui">
+                <p id="hp">HP: 100</p>
+                <p id="combo">Combo: 0</p>
+                <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="0.1">
+            </div>
+        </div>
+
+        <audio id="music" preload="auto"></audio>
+    </div>
+
+    <script src="play.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Project Sekai: Homura Version</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="../teto/teto.ico">
+</head>
+
+<body>
+  <h1>Project Sekai: Hatsuke Mike</h1>
+
+  <div class="controls">
+    <input type="file" id="musicFile" accept="audio/*">
+    <input type="file" id="chartFile" accept=".json">
+    <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="0.1">
+    <button id="recordButton">Record Mode</button>
+    <button id="playButton">Play Mode</button>
+  </div>
+
+  <div id="game">
+    <div id="lanes">
+      <div class="lane" id="laneA">A</div>
+      <div class="lane" id="laneS">S</div>
+      <div class="lane" id="laneD">D</div>
+      <div class="lane" id="laneF">F</div>
+    </div>
+    <div id="hitZone"></div>
+  </div>
+
+  <div class="stats">
+    <div id="hpBar">
+      <div id="hp"></div>
+    </div>
+    <div id="combo">Combo: 0</div>
+  </div>
+
+  <div id="judgement"></div>
+
+  <audio id="music" controls style="display: none;"></audio>
+
+  <script src="script.js"></script>
+</body>
+
+</html>

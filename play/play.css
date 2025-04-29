@@ -1,0 +1,64 @@
+body {
+    font-family: sans-serif;
+    text-align: center;
+    background-color: #f7f7f7;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    margin-top: 20px;
+}
+
+.selector {
+    margin: 20px;
+}
+
+.hidden {
+    display: none;
+}
+
+.lanes {
+    display: flex;
+    justify-content: center;
+    margin-top: 30px;
+}
+
+.lane {
+    width: 80px;
+    height: 400px;
+    margin: 10px;
+    background-color: #ddd;
+    border: 2px solid #333;
+    position: relative;
+    font-size: 24px;
+    line-height: 400px;
+    color: #555;
+    user-select: none;
+}
+
+#hitZone {
+    width: 400px;
+    height: 20px;
+    background-color: rgba(0, 255, 0, 0.3);
+    margin: 20px auto;
+    border: 2px dashed #00aa00;
+    position: relative;
+}
+
+.note {
+    width: 80px;
+    height: 20px;
+    background-color: #ff6699;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+#ui {
+    margin-top: 10px;
+}
+
+#volumeControl {
+    margin-top: 10px;
+}
