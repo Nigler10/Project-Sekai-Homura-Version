@@ -204,7 +204,7 @@ function handleActiveHoldNotes(elapsed) {
                 noteObj.holding = true;
             } else if (noteObj.holding) {
                 noteObj.holding = false;
-                hp -= 10;
+                hp -= 1;
                 updateHp();
                 combo = 0;
                 updateCombo();
@@ -235,7 +235,7 @@ function handleActiveHoldNotes(elapsed) {
         if (noteBottom > hitZone.bottom + 100 && !noteObj.holding) {
             if (noteObj.element.dataset.missed !== 'true') {
                 noteObj.element.dataset.missed = 'true';
-                hp -= 10;
+                hp -= 1;
                 updateHp();
                 combo = 0;
                 updateCombo();
@@ -257,7 +257,7 @@ function handleActiveHoldNotes(elapsed) {
                     keysHit[note.dataset.lane] = true;
                 }
             } else if (noteTop > hitZone.bottom + 100) {
-                hp -= 10;
+                hp -= 5;
                 updateHp();
                 combo = 0;
                 updateCombo();
@@ -279,7 +279,7 @@ function handleActiveHoldNotes(elapsed) {
                     showSmallText('Checkpoint!');
                 } else if (now > cp.time + 200) {
                     cp.passed = true;
-                    hp -= 10;
+                    hp -= 1;
                     updateHp();
                     combo = 0;
                     updateCombo();
