@@ -6,6 +6,9 @@ const musicFileInput = document.getElementById('musicFile');
 const chartFileInput = document.getElementById('chartFile');
 const volumeControl = document.getElementById('volumeControl');
 const lanes = ['A', 'S', 'D', 'F'];
+const slideKeys = ['Q', 'W', 'E', 'R'];
+const allKeys = [...lanes, ...slideKeys];
+let slideBuffer = [];
 
 let notes = [];
 let recording = false;
@@ -79,25 +82,66 @@ playButton.addEventListener('click', () => {
 
 document.addEventListener('keydown', (e) => {
     const key = e.key.toUpperCase();
-    if (!lanes.includes(key)) return;
+    if (!allKeys.includes(key)) return;
+
     if (!keysPressed[key]) {
-        document.getElementById('lane' + key).classList.add('active');
+        const laneId = lanes.includes(key) ? 'lane' + key : 'lane' + lanes[slideKeys.indexOf(key)];
+        const laneElement = document.getElementById(laneId);
+
+        if (slideKeys.includes(key)) {
+            laneElement.classList.add('slide-active'); // New class for QWER
+        } else {
+            laneElement.classList.add('active');
+        }
     }
+
     keysPressed[key] = true;
     keysHit[key] = false;
+
     if (recording) {
-        if (holdStartTimes[key] === undefined) {
-            holdStartTimes[key] = Date.now() - startTime;
+        if (slideKeys.includes(key)) {
+            const now = Date.now() - startTime;
+
+            if (
+                slideBuffer.length &&
+                now - slideBuffer[slideBuffer.length - 1].time < 300 &&
+                slideBuffer[slideBuffer.length - 1].key !== key
+            ) {
+                notes.push({
+                    type: 'slide',
+                    from: slideBuffer[slideBuffer.length - 1].key,
+                    to: key,
+                    time: slideBuffer[slideBuffer.length - 1].time,
+                    followupTime: now
+                });
+                slideBuffer = [];
+            } else {
+                slideBuffer.push({ key, time: now });
+            }
+        } else {
+            if (holdStartTimes[key] === undefined) {
+                holdStartTimes[key] = Date.now() - startTime;
+            }
         }
     }
 });
 
 document.addEventListener('keyup', (e) => {
     const key = e.key.toUpperCase();
-    if (!lanes.includes(key)) return;
-    document.getElementById('lane' + key).classList.remove('active');
+    if (!allKeys.includes(key)) return;
+
+    const laneId = lanes.includes(key) ? 'lane' + key : 'lane' + lanes[slideKeys.indexOf(key)];
+    const laneElement = document.getElementById(laneId);
+
+    if (slideKeys.includes(key)) {
+        laneElement.classList.remove('slide-active');
+    } else {
+        laneElement.classList.remove('active');
+    }
+
     keysPressed[key] = false;
-    if (recording && holdStartTimes[key] !== undefined) {
+
+    if (recording && lanes.includes(key) && holdStartTimes[key] !== undefined) {
         const holdTime = Date.now() - startTime;
         const duration = holdTime - holdStartTimes[key];
         if (duration < 200) {
@@ -142,48 +186,98 @@ function gameLoop() {
 }
 
 function spawnNote(data) {
-    const laneIndex = lanes.indexOf(data.lane);
-    if (laneIndex === -1) return;
-
     const note = document.createElement('div');
     note.className = 'note';
-    note.dataset.lane = data.lane;
     note.dataset.type = data.type;
 
-    if (data.type === 'tap') {
-        note.style.height = '20px';
-    } else if (data.type === 'hold') {
-        const duration = data.endTime - data.startTime;
+    if (data.type === 'slide') {
+        const duration = data.followupTime - data.time;
         const height = (duration / 1000) * fallSpeed * 60;
         note.style.height = height + 'px';
-        note.dataset.startTime = data.startTime;
-        note.dataset.endTime = data.endTime;
+        note.style.background = 'magenta';
+        note.dataset.startTime = data.time;
+        note.dataset.endTime = data.followupTime;
+        note.dataset.from = data.from;
+        note.dataset.to = data.to;
         note.dataset.holdProgress = '0';
         note.dataset.missed = 'false';
 
-        // Add checkpoints for hold notes
-        let checkpoints = [];
-        let seconds = (data.endTime - data.startTime) / 1000;
+        // Place slide note in correct lane (use same visual lanes as ASDF)
+        const visualIndex = slideKeys.indexOf(data.from);
+        if (visualIndex === -1) return; // Skip if invalid
+
+        const correspondingLane = lanes[visualIndex];
+        note.dataset.lane = correspondingLane;
+        note.style.left = (visualIndex * 100 + 10) + 'px';
+        note.style.top = `-${height}px`;
+
+        // Checkpoints for tick events
+        const checkpoints = [];
+        const seconds = duration / 1000;
         for (let t = 1; t < seconds; t++) {
-            checkpoints.push({ time: data.startTime + t * 1000, passed: false });
+            checkpoints.push({ time: data.time + t * 1000, passed: false });
         }
-        holdCheckpoints.push({ element: note, checkpoints: checkpoints, lane: data.lane });
-    }
+        holdCheckpoints.push({
+            element: note,
+            checkpoints: checkpoints,
+            lane: data.from,
+            isSlide: true
+        });
 
-    note.style.left = (laneIndex * 100 + 10) + 'px';
-    note.style.top = '-' + note.style.height;
-    document.getElementById('game').appendChild(note);
-
-    if (data.type === 'hold') {
-        activeHoldNotes.push({ 
-            element: note, 
-            startTime: data.startTime, 
-            endTime: data.endTime, 
-            lane: data.lane, 
-            holding: false, 
-            lastTick: 0 
+        activeHoldNotes.push({
+            element: note,
+            startTime: data.time,
+            endTime: data.followupTime,
+            lane: data.from,
+            holding: false,
+            lastTick: 0,
+            isSlide: true
         });
     }
+
+    else {
+        const laneIndex = lanes.indexOf(data.lane);
+        if (laneIndex === -1) return;
+
+        note.dataset.lane = data.lane;
+        note.style.left = (laneIndex * 100 + 10) + 'px';
+
+        if (data.type === 'tap') {
+            note.style.height = '20px';
+        } else if (data.type === 'hold') {
+            const duration = data.endTime - data.startTime;
+            const height = (duration / 1000) * fallSpeed * 60;
+            note.style.height = height + 'px';
+            note.dataset.startTime = data.startTime;
+            note.dataset.endTime = data.endTime;
+            note.dataset.holdProgress = '0';
+            note.dataset.missed = 'false';
+
+            const checkpoints = [];
+            const seconds = duration / 1000;
+            for (let t = 1; t < seconds; t++) {
+                checkpoints.push({ time: data.startTime + t * 1000, passed: false });
+            }
+            holdCheckpoints.push({
+                element: note,
+                checkpoints: checkpoints,
+                lane: data.lane
+            });
+
+            activeHoldNotes.push({
+                element: note,
+                startTime: data.startTime,
+                endTime: data.endTime,
+                lane: data.lane,
+                holding: false,
+                lastTick: 0
+            });
+        }
+
+        note.style.top = `-${note.style.height}`;
+    }
+
+    document.getElementById('game').appendChild(note);
 }
 
 function handleActiveHoldNotes(elapsed) {
@@ -239,7 +333,7 @@ function handleActiveHoldNotes(elapsed) {
                 updateHp();
                 combo = 0;
                 updateCombo();
-                document.getElementById('judgement').innerText = 'Miss Hold!';
+                document.getElementById('judgement').innerText = noteObj.isSlide ? 'Miss Slide!' : 'Miss Hold!';
             }
         }
     });
@@ -287,6 +381,57 @@ function handleActiveHoldNotes(elapsed) {
                 }
             }
         });
+    });
+
+    document.querySelectorAll('.note').forEach(note => {
+        if (note.dataset.type !== 'slide') return;
+
+        const rect = note.getBoundingClientRect();
+        const noteTop = rect.top;
+        const hitZone = document.getElementById('hitZone').getBoundingClientRect();
+
+        const from = note.dataset.from;
+        const to = note.dataset.to;
+        const noteTime = parseInt(note.dataset.time);
+        const endTime = parseInt(note.dataset.endTime);
+        const now = performance.now();
+        const elapsedTime = now - noteTime;
+        const slideDuration = endTime - noteTime;
+
+        // Start the slide when both keys are pressed and note is in hit zone
+        if (
+            noteTop >= hitZone.top - 30 &&
+            noteTop <= hitZone.bottom + 30 &&
+            keysPressed[from] &&
+            keysPressed[to] &&
+            !note.hitStarted
+        ) {
+            note.hitStarted = true; // Mark slide as started
+            note.dataset.startTime = now; // Save start time
+            combo++;
+            updateCombo();
+            document.getElementById('judgement').innerText = 'Slide Start!';
+        }
+
+        // Finish slide if duration has passed after starting
+        if (note.hitStarted && now - parseFloat(note.dataset.startTime) >= slideDuration) {
+            note.remove();
+            combo++;
+            updateCombo();
+            document.getElementById('judgement').innerText = 'Slide Complete!';
+            const i = activeHoldNotes.findIndex(n => n.element === note);
+            if (i !== -1) activeHoldNotes.splice(i, 1);
+        }
+
+        // Missed the slide entirely (fell below)
+        if (!note.hitStarted && noteTop > hitZone.bottom + 100) {
+            hp -= 5;
+            updateHp();
+            combo = 0;
+            updateCombo();
+            document.getElementById('judgement').innerText = 'Miss Slide!';
+            note.remove();
+        }
     });
 }
 
