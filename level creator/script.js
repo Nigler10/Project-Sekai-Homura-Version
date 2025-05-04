@@ -6,6 +6,12 @@ const musicFileInput = document.getElementById('musicFile');
 const chartFileInput = document.getElementById('chartFile');
 const volumeControl = document.getElementById('volumeControl');
 const lanes = ['A', 'S', 'D', 'F'];
+const directionalKeys = {
+    'A': 'ArrowLeft',
+    'S': 'ArrowDown',
+    'D': 'ArrowUp',
+    'F': 'ArrowRight'
+};
 
 let notes = [];
 let recording = false;
@@ -79,42 +85,85 @@ playButton.addEventListener('click', () => {
 
 document.addEventListener('keydown', (e) => {
     const key = e.key.toUpperCase();
-    if (!lanes.includes(key)) return;
-    if (!keysPressed[key]) {
-        document.getElementById('lane' + key).classList.add('active');
-    }
-    keysPressed[key] = true;
-    keysHit[key] = false;
-    if (recording) {
-        if (holdStartTimes[key] === undefined) {
+    const arrow = e.key;
+
+    // Handle lane keys (A/S/D/F)
+    if (lanes.includes(key)) {
+        if (!keysPressed[key]) {
+            const laneElement = document.getElementById('lane' + key);
+            laneElement.classList.add('active');
+            laneElement.style.backgroundColor = 'rgba(255, 255, 0, 0.3)'; // original glow
+        }
+        keysPressed[key] = true;
+        keysHit[key] = false;
+
+        if (recording && holdStartTimes[key] === undefined) {
             holdStartTimes[key] = Date.now() - startTime;
+        }
+    }
+
+    // Handle flick (arrow) keys
+    for (const [laneKey, arrowKey] of Object.entries(directionalKeys)) {
+        if (arrow === arrowKey) {
+            if (!keysPressed[arrowKey]) {
+                const laneElement = document.getElementById('lane' + laneKey);
+                laneElement.classList.add('active');
+                laneElement.style.backgroundColor = 'rgba(243, 51, 51, 0.3)'; // red glow
+            }
+            keysPressed[arrowKey] = true;
+            keysHit[arrowKey] = false;
+
+            if (recording) {
+                notes.push({
+                    type: 'flick',
+                    time: Date.now() - startTime,
+                    lane: laneKey
+                });
+            }
         }
     }
 });
 
 document.addEventListener('keyup', (e) => {
     const key = e.key.toUpperCase();
-    if (!lanes.includes(key)) return;
-    document.getElementById('lane' + key).classList.remove('active');
-    keysPressed[key] = false;
-    if (recording && holdStartTimes[key] !== undefined) {
-        const holdTime = Date.now() - startTime;
-        const duration = holdTime - holdStartTimes[key];
-        if (duration < 200) {
-            notes.push({
-                type: 'tap',
-                time: holdStartTimes[key],
-                lane: key
-            });
-        } else {
-            notes.push({
-                type: 'hold',
-                startTime: holdStartTimes[key],
-                endTime: holdTime,
-                lane: key
-            });
+    const arrow = e.key;
+
+    // Handle lane key releases
+    if (lanes.includes(key)) {
+        const laneElement = document.getElementById('lane' + key);
+        laneElement.classList.remove('active');
+        laneElement.style.backgroundColor = ''; // reset background
+        keysPressed[key] = false;
+
+        if (recording && holdStartTimes[key] !== undefined) {
+            const holdTime = Date.now() - startTime;
+            const duration = holdTime - holdStartTimes[key];
+            if (duration < 200) {
+                notes.push({
+                    type: 'tap',
+                    time: holdStartTimes[key],
+                    lane: key
+                });
+            } else {
+                notes.push({
+                    type: 'hold',
+                    startTime: holdStartTimes[key],
+                    endTime: holdTime,
+                    lane: key
+                });
+            }
+            delete holdStartTimes[key];
         }
-        delete holdStartTimes[key];
+    }
+
+    // Handle flick (arrow) key releases
+    for (const [laneKey, arrowKey] of Object.entries(directionalKeys)) {
+        if (arrow === arrowKey) {
+            const laneElement = document.getElementById('lane' + laneKey);
+            laneElement.classList.remove('active');
+            laneElement.style.backgroundColor = ''; // reset background
+            keysPressed[arrowKey] = false;
+        }
     }
 });
 
@@ -152,6 +201,9 @@ function spawnNote(data) {
 
     if (data.type === 'tap') {
         note.style.height = '20px';
+    } else if (data.type === 'flick') {
+        note.style.height = '20px';
+        note.classList.add('flick');
     } else if (data.type === 'hold') {
         const duration = data.endTime - data.startTime;
         const height = (duration / 1000) * fallSpeed * 60;
@@ -161,7 +213,6 @@ function spawnNote(data) {
         note.dataset.holdProgress = '0';
         note.dataset.missed = 'false';
 
-        // Add checkpoints for hold notes
         let checkpoints = [];
         let seconds = (data.endTime - data.startTime) / 1000;
         for (let t = 1; t < seconds; t++) {
@@ -175,13 +226,13 @@ function spawnNote(data) {
     document.getElementById('game').appendChild(note);
 
     if (data.type === 'hold') {
-        activeHoldNotes.push({ 
-            element: note, 
-            startTime: data.startTime, 
-            endTime: data.endTime, 
-            lane: data.lane, 
-            holding: false, 
-            lastTick: 0 
+        activeHoldNotes.push({
+            element: note,
+            startTime: data.startTime,
+            endTime: data.endTime,
+            lane: data.lane,
+            holding: false,
+            lastTick: 0
         });
     }
 }
@@ -213,7 +264,6 @@ function handleActiveHoldNotes(elapsed) {
         }
 
         if (noteObj.holding) {
-            // Shrinking properly based on time
             let duration = (noteObj.endTime - noteObj.startTime) / 1000;
             let totalHeight = (duration) * fallSpeed * 60;
             let progress = (elapsed - noteObj.startTime) / (noteObj.endTime - noteObj.startTime);
@@ -247,14 +297,16 @@ function handleActiveHoldNotes(elapsed) {
     document.querySelectorAll('.note').forEach(note => {
         const rect = note.getBoundingClientRect();
         const noteTop = rect.top;
+        const lane = note.dataset.lane;
+
         if (note.dataset.type === 'tap') {
             if (noteTop >= hitZone.top - 30 && noteTop <= hitZone.bottom + 30) {
-                if (keysPressed[note.dataset.lane] && !keysHit[note.dataset.lane]) {
+                if (keysPressed[lane] && !keysHit[lane]) {
                     combo++;
                     updateCombo();
                     document.getElementById('judgement').innerText = 'Perfect!';
                     note.remove();
-                    keysHit[note.dataset.lane] = true;
+                    keysHit[lane] = true;
                 }
             } else if (noteTop > hitZone.bottom + 100) {
                 hp -= 5;
@@ -265,9 +317,28 @@ function handleActiveHoldNotes(elapsed) {
                 note.remove();
             }
         }
+
+        if (note.dataset.type === 'flick') {
+            if (noteTop >= hitZone.top - 30 && noteTop <= hitZone.bottom + 30) {
+                const expectedKey = directionalKeys[lane];
+                if (keysPressed[expectedKey] && !keysHit[expectedKey]) {
+                    combo++;
+                    updateCombo();
+                    document.getElementById('judgement').innerText = 'Flick!';
+                    note.remove();
+                    keysHit[expectedKey] = true;
+                }
+            } else if (noteTop > hitZone.bottom + 100) {
+                hp -= 5;
+                updateHp();
+                combo = 0;
+                updateCombo();
+                document.getElementById('judgement').innerText = 'Miss Flick!';
+                note.remove();
+            }
+        }
     });
 
-    // Check hold note checkpoints
     const now = Date.now() - startTime;
     holdCheckpoints.forEach(check => {
         check.checkpoints.forEach(cp => {

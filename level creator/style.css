@@ -83,3 +83,7 @@ body {
     margin-top: 10px;
     height: 40px;
 }
+
+.note.flick {
+    background: yellow; /* distinguish flicks easily */
+}
